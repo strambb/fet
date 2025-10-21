@@ -2,7 +2,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from typing import Optional
 from enum import Enum, auto
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import uuid4, UUID
 import src.domain.expense.exception as exception
 
@@ -19,25 +19,25 @@ class ExpenseCategory(Enum):
     OFFICE_SUPPLIES = auto()
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Organization:
     name: str
-    id: UUID = uuid4()
+    id: UUID = field(default_factory=uuid4)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Expense:
+    id: UUID = field(default_factory=uuid4)
     submitter_id: str
     date: datetime
     title: str
     amount: float
     category: ExpenseCategory
     organization: Organization
-    id: UUID = uuid4()
     notes: Optional[str] = None
     state: ExpenseState = ExpenseState.DRAFT
     document_reference: Optional[str] = None
-    approved_by: Optional[str] = None
+    approved_by_id: Optional[str] = None
     decline_reason: Optional[str] = None
     revoke_reason: Optional[str] = None
 
@@ -54,7 +54,7 @@ class Expense:
         if not self._ensure(self.submitter_id != by):
             raise (exception.InvalidApprover)
 
-        self.approved_by = by
+        self.approved_by_id = by
         self.state = ExpenseState.APPROVED
 
     def withdraw(self, by: str):
@@ -73,7 +73,7 @@ class Expense:
         if not self._ensure(self.state == ExpenseState.APPROVED):
             raise exception.InvalidRevokeState
 
-        if not self._ensure(self.approved_by == by):
+        if not self._ensure(self.approved_by_id == by):
             raise exception.InvalidRevokeUser
 
         self.revoke_reason = reason

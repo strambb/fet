@@ -1,8 +1,10 @@
 import pytest
+from uuid import uuid4
+from tests.conftest import FakeUser
 
 
-def 
 
 
-def test_can_get_user_role_from_repo(FakeUserRepository):
-    assert FakeUserRepository.has_role("1", "a") == 
+
+def test_approver_is_allowed_to_approve(expense_auth_service):
+    expense_auth_service.can_approve()

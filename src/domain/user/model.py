@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 from enum import Enum, auto
@@ -12,11 +12,8 @@ class UserRole(Enum):
 
 @dataclass(kw_only=True)
 class User:
-    id: UUID = uuid4()
-    firstname: str
-    lastname: str
+    id: UUID = field(default_factory=uuid4)
+    name: str
     email: str
-    role: UserRole
-    organization_id: UUID
     role: UserRole
     organization_id: UUID
