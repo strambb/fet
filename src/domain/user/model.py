@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
-from uuid import UUID, uuid4
-
 from enum import Enum, auto
+from uuid import UUID, uuid4
 
 
 class UserRole(Enum):
