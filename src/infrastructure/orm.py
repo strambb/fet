@@ -1,5 +1,5 @@
 from uuid import UUID, uuid4
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import DateTime, Float, ForeignKey, String
 from sqlalchemy import Enum as SQLEnum
@@ -21,6 +21,12 @@ class OrganizationORM(Base):
         PostgreSQL_UUID(as_uuid=True), primary_key=True, default=uuid4
     )
     name: Mapped[str] = mapped_column(String(255))
+    created: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
+    last_modified: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
     expenses: Mapped[list["ExpenseORM"]] = relationship(back_populates="organization")
     users: Mapped[list["UserORM"]] = relationship(back_populates="organization")
 
@@ -36,6 +42,14 @@ class UserORM(Base):
     role: Mapped[user_model.UserRole] = mapped_column(SQLEnum(user_model.UserRole))
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     organization: Mapped[OrganizationORM] = relationship(back_populates="users")
+    created: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    last_modified: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
 
 class ExpenseORM(Base):
@@ -65,6 +79,14 @@ class ExpenseORM(Base):
     )
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     organization: Mapped[OrganizationORM] = relationship(back_populates="expenses")
+    created: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    last_modified: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
     def to_domain(self) -> expense_model.Expense:
         """Convert ORM model to domain model."""

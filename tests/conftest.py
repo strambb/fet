@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 from src.infrastructure.orm import Base
-from infrastructure.database import build_postgres_uri
+from src.infrastructure.database import build_postgres_uri
 
 
 @pytest.fixture
