@@ -171,13 +171,3 @@ def test_cannot_revoke_approval_as_not_approver():
         expense.revoke("not_approver", reason="good reason")
 
 
-def test_can_decline_in_submitted_state_as_not_submitter():
-    raise NotImplementedError
-
-
-def test_can_approve_if_budget_is_greater_expense():
-    raise NotImplementedError
-
-
-def test_cannot_approve_if_budget_is_smaller_than_expense():
-    raise NotImplementedError

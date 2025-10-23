@@ -14,7 +14,7 @@ class SqlAlchemyUserRepository(repositories.IUserRepository):
 
     def has_role(self, user_id: UUID, role: str) -> bool:
         user_orm = self._session.get(orm.UserORM, user_id)
-        return user_orm.role == role if user_orm else False
+        return user_orm.role.name == role if user_orm else False
 
     def is_same_organization(self, user_id: UUID, org_id: UUID) -> bool:
         user_orm = self._session.get(orm.UserORM, user_id)
@@ -29,7 +29,7 @@ class FakeUserRepository(repositories.IUserRepository):
 
     def has_role(self, user_id: UUID, role: str) -> bool:
         user = self._users.get(user_id, None)
-        return user.role == role if user else False
+        return user.role.name == role if user else False
 
     def is_same_organization(self, user_id: UUID, org_id: UUID) -> bool:
         user = self._users.get(user_id, None)

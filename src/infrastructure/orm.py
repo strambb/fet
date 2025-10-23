@@ -25,6 +25,19 @@ class OrganizationORM(Base):
     users: Mapped[list["UserORM"]] = relationship(back_populates="organization")
 
 
+class UserORM(Base):
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(
+        PostgreSQL_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    role: Mapped[user_model.UserRole] = mapped_column(SQLEnum(user_model.UserRole))
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
+    organization: Mapped[OrganizationORM] = relationship(back_populates="users")
+
+
 class ExpenseORM(Base):
     __tablename__ = "expenses"
     id: Mapped[UUID] = mapped_column(
@@ -84,14 +97,3 @@ class ExpenseORM(Base):
             if expense.approved_by_id
             else None,
         )
-
-
-class UserORM(Base):
-    __tablename__ = "users"
-
-    id: Mapped[UUID] = mapped_column(PostgreSQL_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(String(255))
-    email:Mapped[str] = mapped_column(String(255), unique=True)
-    role: Mapped[user_model.UserRole] = mapped_column(SQLEnum(user_model.UserRole))
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
-    organization: Mapped[OrganizationORM] = relationship(back_populates="users")
