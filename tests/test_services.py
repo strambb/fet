@@ -99,16 +99,17 @@ class TestExpenseAppService:
         user_repo = FakeUserRepository([user])
 
         expense_auth = ExpenseAuthorizationService(user_repo=user_repo)
-        return ExpenseApplicationService(expense_auth)
 
-    def test_can_create_expense(self):
-        expense_app = self.get_expense_app_service()
+    #     return ExpenseApplicationService(expense_auth)
 
-        expense_app.create_expense(
-            user,
-            "title",
-            amount...
-        )
+    # def test_can_create_expense(self):
+    #     expense_app = self.get_expense_app_service()
+
+    #     expense_app.create_expense(
+    #         user,
+    #         "title",
+    #         amount...
+    #     )
 
     def test_can_get_expense_as_submitter(self):
         expense_app = self.get_expense_app_service()
@@ -116,34 +117,25 @@ class TestExpenseAppService:
 
     def test_can_get_expense_as_approver_of_same_org(self):
         raise NotImplementedError
-    
+
     def test_cannot_get_expense_as_approver_of_other_org(self):
         raise NotImplementedError
-    
+
     def test_cannot_get_not_mine_expense_as_submitter(self):
         raise NotImplementedError
 
     def test_can_submit_expense(self):
         expense_app = self.get_expense_app_service()
         raise NotImplementedError
-    
+
     def test_can_withdraw_my_expense(self):
         raise NotImplementedError
-    
+
     def test_can_approve_as_approver_of_same_org(self):
         raise NotImplementedError
-    
+
     def test_cannot_approve_as_approver_of_other_org(self):
         raise NotImplementedError
-    
+
     def test_can_revoke_as_approver(self):
         raise NotImplementedError
-    
-    def test
-    
-
-    
-
-
-
-
