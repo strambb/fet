@@ -55,6 +55,7 @@ class SqlAlchemyExpenseRepository(repositories.IExpenseRepository):
 
         self._session.add(expense_orm)
         self._session.commit()
+    
 
     def find_by_organization(self, org_id: UUID) -> list[expense_model.Expense]:
         expense_orms = (

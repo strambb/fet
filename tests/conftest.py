@@ -2,12 +2,12 @@ import pytest
 
 
 import time
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 from src.infrastructure.orm import Base
-from src.config import get_config
+from infrastructure.database import build_postgres_uri
 
 
 @pytest.fixture
@@ -32,11 +32,6 @@ def wait_for_postgres_to_come_up(engine):
     pytest.fail("Postgres never came up")
 
 
-def build_postgres_uri():
-    settings = get_config()
-    return f"postgresql://{settings.db.username}:{settings.db.password}@{settings.db.host}:{settings.db.port}/{settings.db.dbname}"
-
-
 @pytest.fixture(scope="session")
 def postgres_db():
     engine = create_engine(build_postgres_uri())
@@ -47,8 +42,23 @@ def postgres_db():
     return engine
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def postgres_session(postgres_db):
-    yield sessionmaker(bind=postgres_db)()
-    Base.metadata.drop_all(postgres_db)
-    Base.metadata.create_all(postgres_db)
+    connection = postgres_db.connect()
+    transaction = connection.begin()
+    session = sessionmaker(bind=connection)()
+
+    # Start a SAVEPOINT - commits will only commit to this savepoint
+    session.begin_nested()
+
+    # Automatically restart the SAVEPOINT after each commit
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(session, transaction):
+        if transaction.nested and not transaction._parent.nested:
+            session.begin_nested()
+
+    yield session
+
+    session.close()
+    transaction.rollback()  # Rolls back everything, including "committed" data
+    connection.close()

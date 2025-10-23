@@ -33,5 +33,5 @@ class Settings(BaseSettings):
         return (init_settings, env_settings, dotenv_settings, file_secret_settings)
 
 
-def get_config():
-    return Settings()
+def get_settings():
+    return Settings()  # type: ignore
