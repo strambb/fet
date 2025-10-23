@@ -218,3 +218,6 @@ __marimo__/
 .streamlit/secrets.toml
 src/domain/__pycache__/repositories.cpython-312.pyc
 tests/__pycache__/conftest.cpython-312-pytest-8.4.2.pyc
+
+# other cache
+*.pyc
