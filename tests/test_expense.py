@@ -52,7 +52,7 @@ def generate_random_expense(amount: float = 10):
         title=f"title-{str(uuid4())[-6:]}",
         amount=amount,
         category=model.ExpenseCategory.OFFICE_SUPPLIES,
-        organization=random_org(),
+        organization_id=random_org().id,
     )
 
 
@@ -64,7 +64,7 @@ def test_new_expense_in_draft_state():
         title="Pens",
         amount=100,
         document_reference=None,
-        organization=org,
+        organization_id=org.id,
         date=datetime(2025, 2, 1),
     )
     assert expense.state == model.ExpenseState.DRAFT
@@ -169,5 +169,3 @@ def test_cannot_revoke_approval_as_not_approver():
     expense.approve(approver)
     with pytest.raises(exception.InvalidRevokeUser):
         expense.revoke("not_approver", reason="good reason")
-
-

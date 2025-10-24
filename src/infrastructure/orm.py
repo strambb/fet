@@ -98,9 +98,7 @@ class ExpenseORM(Base):
             date=self.date,
             category=self.category,
             state=self.state,
-            organization=expense_model.Organization(
-                id=self.organization_id, name=self.organization.name
-            ),
+            organization_id=self.organization_id,
             approved_by_id=str(self.approved_by_id) if self.approved_by_id else None,
         )
 
@@ -114,7 +112,7 @@ class ExpenseORM(Base):
             date=expense.date,
             category=expense.category,
             state=expense.state,
-            organization_id=expense.organization.id,
+            organization_id=expense.organization_id,
             approved_by_id=UUID(expense.approved_by_id)
             if expense.approved_by_id
             else None,

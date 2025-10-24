@@ -63,7 +63,7 @@ def generate_expense(submitter_id: UUID = uuid4(), org_id: UUID = uuid4()):
         title="my expense",
         amount=100,
         category=expense_model.ExpenseCategory.OFFICE_SUPPLIES,
-        organization=expense_model.Organization(id=org_id, name="org1"),
+        organization_id=org_id,
     )
 
 

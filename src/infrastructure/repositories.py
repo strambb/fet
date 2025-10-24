@@ -7,6 +7,7 @@ from src.domain.user import model as user_model
 from sqlalchemy.orm import Session
 from src.infrastructure import orm
 
+
 ### User repos
 class SqlAlchemyUserRepository(repositories.IUserRepository):
     def __init__(self, session: Session):
@@ -23,6 +24,7 @@ class SqlAlchemyUserRepository(repositories.IUserRepository):
     def exists(self, user_id: UUID):
         return self._session.get(orm.UserORM, user_id) is not None
 
+
 class FakeUserRepository(repositories.IUserRepository):
     def __init__(self, users: Optional[list[user_model.User]] = None):
         self._users = {user.id: user for user in users} if users else {}
@@ -38,6 +40,7 @@ class FakeUserRepository(repositories.IUserRepository):
     def exists(self, user_id):
         return user_id in self._users
 
+
 #### Expense Repos
 class SqlAlchemyExpenseRepository(repositories.IExpenseRepository):
     def __init__(self, session: Session):
@@ -50,12 +53,11 @@ class SqlAlchemyExpenseRepository(repositories.IExpenseRepository):
 
         return expense_orm.to_domain()
 
-    def save(self, expense):
+    def save(self, expense: expense_model.Expense):
         expense_orm = orm.ExpenseORM.from_domain(expense)
 
         self._session.add(expense_orm)
         self._session.commit()
-    
 
     def find_by_organization(self, org_id: UUID) -> list[expense_model.Expense]:
         expense_orms = (
@@ -79,14 +81,14 @@ class FakeExpenseRepository(repositories.IExpenseRepository):
             raise exception.NoExpenseFound
         return expense
 
-    def save(self, expense) -> None:
+    def save(self, expense: expense_model.Expense) -> None:
         self._expenses[expense.id] = expense
 
     def find_by_organization(self, org_id: UUID) -> list[expense_model.Expense]:
         expenses = [
             expense
             for expense in self._expenses.values()
-            if expense.organization.id == org_id
+            if expense.organization_id == org_id
         ]
         if not expenses:
             raise exception.NoExpenseFound

@@ -28,12 +28,12 @@ class Organization:
 @dataclass(kw_only=True)
 class Expense:
     id: UUID = field(default_factory=uuid4)
-    submitter_id: str
+    submitter_id: UUID
     date: datetime
     title: str
     amount: float
     category: ExpenseCategory
-    organization: Organization
+    organization_id: UUID
     notes: Optional[str] = None
     state: ExpenseState = ExpenseState.DRAFT
     document_reference: Optional[str] = None
