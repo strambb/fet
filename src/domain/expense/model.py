@@ -37,17 +37,20 @@ class Expense:
     notes: Optional[str] = None
     state: ExpenseState = ExpenseState.DRAFT
     document_reference: Optional[str] = None
-    approved_by_id: Optional[str] = None
+    approved_by_id: Optional[UUID] = None
     decline_reason: Optional[str] = None
     revoke_reason: Optional[str] = None
 
-    def submit(self):
+    def submit(self, by: UUID):
+        if not self._ensure(self.submitter_id == by):
+            raise exception.InvalidSubmitUser
+
         if not self._ensure(self.state == ExpenseState.DRAFT):
             raise exception.ExpenseNotDraft
 
         self.state = ExpenseState.SUBMITTED
 
-    def approve(self, by: str):
+    def approve(self, by: UUID):
         if not self._ensure(self.state == ExpenseState.SUBMITTED):
             raise (exception.ExpenseNotSubmitted)
 
@@ -57,7 +60,7 @@ class Expense:
         self.approved_by_id = by
         self.state = ExpenseState.APPROVED
 
-    def withdraw(self, by: str):
+    def withdraw(self, by: UUID):
         if not self._ensure(self.submitter_id == by):
             raise exception.InvalidWithdrawUser
 
@@ -66,7 +69,7 @@ class Expense:
 
         self.state = ExpenseState.WITHDRAWN
 
-    def revoke(self, by: str, reason: str):
+    def revoke(self, by: UUID, reason: str):
         if not reason:
             raise exception.MissingReason
 

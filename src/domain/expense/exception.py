@@ -1,3 +1,7 @@
+class InvalidSubmitUser(Exception):
+    pass
+
+
 class ExpenseNotSubmitted(Exception):
     pass
 

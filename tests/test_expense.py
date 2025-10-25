@@ -72,15 +72,15 @@ def test_new_expense_in_draft_state():
 
 def test_expense_after_submit_in_submitted_state():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     assert expense.state == model.ExpenseState.SUBMITTED
 
 
 def test_cannot_submit_expense_if_not_draft():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     with pytest.raises(exception.ExpenseNotDraft):
-        expense.submit()
+        expense.submit(expense.submitter_id)
 
 
 def test_expense_error_approval_in_draft_state():
@@ -91,14 +91,14 @@ def test_expense_error_approval_in_draft_state():
 
 def test_cannot_self_approve():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     with pytest.raises(exception.InvalidApprover):
         expense.approve(expense.submitter_id)
 
 
 def test_expense_approval_by_valid_approver():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     expense.approve("valid_approver_id")
     assert expense.state == model.ExpenseState.APPROVED
 
@@ -118,7 +118,7 @@ def test_can_withdraw_expense_from_submitted_as_submitter():
 
     # Expense in draft and withdraw
     submitter1 = expense1.submitter_id
-    expense1.submit()
+    expense1.submit(expense1.submitter_id)
     expense1.withdraw(submitter1)
 
     assert expense1.state == model.ExpenseState.WITHDRAWN
@@ -133,7 +133,7 @@ def test_cannot_withdraw_as_different_user():
 
 def test_cannot_withdraw_from_approved_state():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     expense.approve("valid_approver")
     with pytest.raises(exception.InvalidWithdrawState):
         expense.withdraw(expense.submitter_id)
@@ -141,7 +141,7 @@ def test_cannot_withdraw_from_approved_state():
 
 def test_can_revoke_approval_as_approver_with_reason():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     approver = "valid_approver"
     expense.approve(approver)
     expense.revoke(by=approver, reason="new insights")
@@ -150,7 +150,7 @@ def test_can_revoke_approval_as_approver_with_reason():
 
 def test_cannot_revoce_approval_as_approver_without_reason():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     approver = "valid_approver"
     expense.approve(approver)
     with pytest.raises(exception.MissingReason):
@@ -164,7 +164,7 @@ def test_cannot_revoce_approval_as_approver_without_reason():
 
 def test_cannot_revoke_approval_as_not_approver():
     expense = generate_random_expense()
-    expense.submit()
+    expense.submit(expense.submitter_id)
     approver = "valid_approver"
     expense.approve(approver)
     with pytest.raises(exception.InvalidRevokeUser):

@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 from src.infrastructure.orm import Base
 from src.infrastructure.database import build_postgres_uri
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
@@ -42,7 +43,7 @@ def postgres_db():
     return engine
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def postgres_session(postgres_db):
     connection = postgres_db.connect()
     transaction = connection.begin()
@@ -62,3 +63,10 @@ def postgres_session(postgres_db):
     session.close()
     transaction.rollback()  # Rolls back everything, including "committed" data
     connection.close()
+
+
+@pytest.fixture
+def testclient():
+    from src.main import app
+
+    return TestClient(app)

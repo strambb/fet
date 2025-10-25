@@ -51,6 +51,16 @@ class UserORM(Base):
         onupdate=lambda: datetime.now(UTC),
     )
 
+    def to_domain(self) -> user_model.User:
+        """Convert ORM Model to Domain Model"""
+        return user_model.User(
+            id=self.id,
+            name=self.name,
+            email=self.email,
+            role=self.role,
+            organization_id=self.organization_id,
+        )
+
 
 class ExpenseORM(Base):
     __tablename__ = "expenses"
@@ -92,28 +102,26 @@ class ExpenseORM(Base):
         """Convert ORM model to domain model."""
         return expense_model.Expense(
             id=self.id,
-            submitter_id=str(self.submitter_id),
+            submitter_id=self.submitter_id,
             title=self.title,
             amount=self.amount,
             date=self.date,
             category=self.category,
             state=self.state,
             organization_id=self.organization_id,
-            approved_by_id=str(self.approved_by_id) if self.approved_by_id else None,
+            approved_by_id=self.approved_by_id if self.approved_by_id else None,
         )
 
     @classmethod
     def from_domain(cls, expense: expense_model.Expense) -> "ExpenseORM":
         return cls(
             id=expense.id,
-            submitter_id=UUID(expense.submitter_id),
+            submitter_id=expense.submitter_id,
             title=expense.title,
             amount=expense.amount,
             date=expense.date,
             category=expense.category,
             state=expense.state,
             organization_id=expense.organization_id,
-            approved_by_id=UUID(expense.approved_by_id)
-            if expense.approved_by_id
-            else None,
+            approved_by_id=expense.approved_by_id if expense.approved_by_id else None,
         )

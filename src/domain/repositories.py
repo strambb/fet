@@ -1,6 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 from src.domain.expense import model as expense_model
+from src.domain.user import model as user_model
 
 
 class IUserRepository(Protocol):
@@ -10,6 +11,8 @@ class IUserRepository(Protocol):
 
     def exists(self, user_id: UUID) -> bool: ...
 
+    def get(self, user_id: UUID) -> user_model.User: ...
+
 
 class IExpenseRepository(Protocol):
     def get(self, expense_id: UUID) -> expense_model.Expense: ...
@@ -17,3 +20,5 @@ class IExpenseRepository(Protocol):
     def save(self, expense: expense_model.Expense) -> None: ...
 
     def find_by_organization(self, org_id: UUID) -> list[expense_model.Expense]: ...
+
+    def find_by_user(self, user_id: UUID) -> list[expense_model.Expense]: ...

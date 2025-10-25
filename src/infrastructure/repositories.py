@@ -5,6 +5,7 @@ from src.domain import repositories
 from src.domain.expense import model as expense_model
 from src.domain.user import model as user_model
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from src.infrastructure import orm
 
 
@@ -24,6 +25,12 @@ class SqlAlchemyUserRepository(repositories.IUserRepository):
     def exists(self, user_id: UUID):
         return self._session.get(orm.UserORM, user_id) is not None
 
+    def get(self, user_id: UUID):
+        user = self._session.get(orm.UserORM, user_id)
+        if not user:
+            raise exception.UserNotFound
+        return user.to_domain()
+
 
 class FakeUserRepository(repositories.IUserRepository):
     def __init__(self, users: Optional[list[user_model.User]] = None):
@@ -39,6 +46,12 @@ class FakeUserRepository(repositories.IUserRepository):
 
     def exists(self, user_id):
         return user_id in self._users
+
+    def get(self, user_id: UUID):
+        user = self._users.get(user_id, None)
+        if not user:
+            raise exception.UserNotFound
+        return user
 
 
 #### Expense Repos
@@ -68,6 +81,22 @@ class SqlAlchemyExpenseRepository(repositories.IExpenseRepository):
 
         return [expense_orm.to_domain() for expense_orm in expense_orms]
 
+    def find_by_user(self, user_id: UUID) -> list[expense_model.Expense]:
+        expense_orms = (
+            self._session.query(orm.ExpenseORM)
+            .filter(
+                or_(
+                    orm.ExpenseORM.submitter_id == user_id,
+                    orm.ExpenseORM.approved_by_id == user_id,
+                )
+            )
+            .all()
+        )
+        if not expense_orms:
+            raise exception.NoExpenseFound
+
+        return [expense_orm.to_domain() for expense_orm in expense_orms]
+
 
 class FakeExpenseRepository(repositories.IExpenseRepository):
     def __init__(self, expenses: Optional[list[expense_model.Expense]] = None):
@@ -89,6 +118,16 @@ class FakeExpenseRepository(repositories.IExpenseRepository):
             expense
             for expense in self._expenses.values()
             if expense.organization_id == org_id
+        ]
+        if not expenses:
+            raise exception.NoExpenseFound
+        return expenses
+
+    def find_by_user(self, user_id: UUID) -> list[expense_model.Expense]:
+        expenses = [
+            expense
+            for expense in self._expenses.values()
+            if expense.submitter_id == user_id or expense.approved_by_id == user_id
         ]
         if not expenses:
             raise exception.NoExpenseFound

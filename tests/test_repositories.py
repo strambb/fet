@@ -58,7 +58,7 @@ def insert_approver(session, org_id: UUID, commit: bool = False):
 
 def generate_expense(submitter_id: UUID = uuid4(), org_id: UUID = uuid4()):
     return expense_model.Expense(
-        submitter_id=str(submitter_id),
+        submitter_id=submitter_id,
         date=datetime(2025, 1, 1),
         title="my expense",
         amount=100,

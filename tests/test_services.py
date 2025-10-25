@@ -1,13 +1,17 @@
-from uuid import uuid4, UUID
-from src.application.services import (
-    ExpenseAuthorizationService,
-    ExpenseApplicationService,
-)
-from src.domain.user import model as user_model
-from src.domain.expense import model as expense_model
-from src.infrastructure.repositories import FakeUserRepository, FakeExpenseRepository
 from datetime import datetime
-from dataclasses import field
+from typing import Optional
+from uuid import UUID, uuid4
+
+import pytest
+
+from src.application import expense_exception
+from src.application.services import (
+    ExpenseApplicationService,
+    ExpenseAuthorizationService,
+)
+from src.domain.expense import model as expense_model
+from src.domain.user import model as user_model
+from src.infrastructure.repositories import FakeExpenseRepository, FakeUserRepository
 
 
 def fake_user_repo(users: list[user_model.User]):
@@ -40,7 +44,7 @@ def generate_user(
 
 def generate_expense(submitter_id: UUID = uuid4(), org_id: UUID = uuid4()):
     return expense_model.Expense(
-        submitter_id=str(submitter_id),
+        submitter_id=submitter_id,
         date=datetime(2025, 1, 1),
         title="my expense",
         amount=100,
@@ -105,6 +109,11 @@ class TestExpenseAppService:
     def get_FakeUserRepo(self, users: list[user_model.User]):
         return FakeUserRepository(users=users)
 
+    def get_FakeExpenseRepo(
+        self, expenses: Optional[list[expense_model.Expense]] = None
+    ):
+        return FakeExpenseRepository(expenses=expenses)
+
     def get_ExpenseAuthService(self, user_repo):
         return ExpenseAuthorizationService(user_repo=user_repo)
 
@@ -122,7 +131,7 @@ class TestExpenseAppService:
                 submitter,
             ]
         )
-        expense_repo = FakeExpenseRepository()
+        expense_repo = self.get_FakeExpenseRepo()
         expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
         expense_app = self.get_ExpenseApplicationService(
             expense_repo=expense_repo, expense_auth_service=expense_auth_service
@@ -141,31 +150,282 @@ class TestExpenseAppService:
         )
 
     def test_can_get_expense_as_submitter(self):
-        expense_app = self.get_expense_app_service()
-        expense = expense_app.create_expense(user_id, ...)
-        expenses = expense_app.load_user_expenses(user_id, ...)
-        assert expense in expenses.values()
+        submitter = generate_user()
+        user_repo = self.get_FakeUserRepo([submitter])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        expenses = expense_app.get_related_expenses(submitter.id)
+        assert expense in expenses
 
     def test_can_get_expense_as_approver_of_same_org(self):
-        raise NotImplementedError
+        submitter = generate_user()
+        approver = generate_user(role="approver", org_id=submitter.organization_id)
+        user_repo = self.get_FakeUserRepo([submitter, approver])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        expenses = expense_app.get_all_org_expenses(
+            approver.id, approver.organization_id
+        )
+        assert expense in expenses
 
     def test_cannot_get_expense_as_approver_of_other_org(self):
-        raise NotImplementedError
+        submitter = generate_user()
+        approver = generate_user(role="approver")
+        user_repo = self.get_FakeUserRepo([submitter, approver])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        with pytest.raises(expense_exception.NotPermitted):
+            expense_app.get_all_org_expenses(approver.id, submitter.organization_id)
 
     def test_cannot_get_not_mine_expense_as_submitter(self):
-        raise NotImplementedError
+        submitter1 = generate_user()
+        submitter2 = generate_user(org_id=submitter1.organization_id)
+        user_repo = self.get_FakeUserRepo([submitter1, submitter2])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense1 = expense_app.create_expense(
+            submitter1.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter1.organization_id,
+        )
+        expense2 = expense_app.create_expense(
+            submitter2.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter2.organization_id,
+        )
+
+        expenses = expense_app.get_related_expenses(submitter2.id)
+        assert expenses
+        assert expense2 in expenses
+        assert expense1 not in expenses
 
     def test_can_submit_expense(self):
-        raise NotImplementedError
+        submitter = generate_user()
+
+        user_repo = self.get_FakeUserRepo(
+            [
+                submitter,
+            ]
+        )
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+        expense_app.submit_expense(user_id=submitter.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
+
+    def test_cannot_submit_not_mine_expense(self):
+        submitter = generate_user()
+
+        user_repo = self.get_FakeUserRepo(
+            [
+                submitter,
+            ]
+        )
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+        with pytest.raises(expense_exception.InvalidSubmitter):
+            expense_app.submit_expense(user_id=uuid4(), expense_id=expense.id)
+
+        assert expense.state.name == "DRAFT"
 
     def test_can_withdraw_my_expense(self):
-        raise NotImplementedError
+        submitter = generate_user()
+
+        user_repo = self.get_FakeUserRepo(
+            [
+                submitter,
+            ]
+        )
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+        expense_app.withdraw_expense(user_id=submitter.id, expense_id=expense.id)
+
+        assert expense.state.name == "WITHDRAWN"
 
     def test_can_approve_as_approver_of_same_org(self):
-        raise NotImplementedError
+        submitter = generate_user()
+        approver = generate_user(role="approver", org_id=submitter.organization_id)
+        user_repo = self.get_FakeUserRepo([submitter, approver])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        expense_app.submit_expense(user_id=submitter.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
+
+        expense_app.approve_expense(user_id=approver.id, expense_id=expense.id)
+
+        assert expense.state.name == "APPROVED"
 
     def test_cannot_approve_as_approver_of_other_org(self):
-        raise NotImplementedError
+        submitter = generate_user()
+        approver = generate_user(role="approver")
+        user_repo = self.get_FakeUserRepo([submitter, approver])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        expense_app.submit_expense(user_id=submitter.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
+
+        with pytest.raises(expense_exception.InvalidApprover):
+            expense_app.approve_expense(user_id=approver.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
+
+    def test_cannot_approve_as_submitter_of_same_org(self):
+        submitter = generate_user()
+        submitter2 = generate_user(org_id=submitter.organization_id)
+        user_repo = self.get_FakeUserRepo([submitter, submitter2])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        expense_app.submit_expense(user_id=submitter.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
+
+        with pytest.raises(expense_exception.InvalidApprover):
+            expense_app.approve_expense(user_id=submitter2.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
 
     def test_can_revoke_as_approver(self):
-        raise NotImplementedError
+        submitter = generate_user()
+        approver = generate_user(role="approver", org_id=submitter.organization_id)
+        user_repo = self.get_FakeUserRepo([submitter, approver])
+        expense_repo = self.get_FakeExpenseRepo()
+        expense_auth_service = self.get_ExpenseAuthService(user_repo=user_repo)
+        expense_app = self.get_ExpenseApplicationService(
+            expense_repo=expense_repo, expense_auth_service=expense_auth_service
+        )
+        expense = expense_app.create_expense(
+            submitter.id,
+            "title",
+            datetime.now(),
+            100.10,
+            "OFFICE_SUPPLIES",
+            submitter.organization_id,
+        )
+
+        expense_app.submit_expense(user_id=submitter.id, expense_id=expense.id)
+
+        assert expense.state.name == "SUBMITTED"
+        
+        expense_app.approve_expense(user_id=approver.id, expense_id=expense.id)
+
+        assert expense.state.name == "APPROVED"
+
+        expense_app.revoke_approval(user_id=approver.id, expense_id=expense.id, reason="I have my reason")
+
+        assert expense.state.name == "REVOKED"
