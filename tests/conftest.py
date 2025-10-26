@@ -9,6 +9,7 @@ from sqlalchemy_utils import database_exists, create_database
 from src._shared.infrastructure.orm import Base
 from src._shared.infrastructure.database import build_postgres_uri
 from fastapi.testclient import TestClient
+from src._shared.config import Settings, TestConfig, DBConfig
 
 
 @pytest.fixture
@@ -66,7 +67,29 @@ def postgres_session(postgres_db):
 
 
 @pytest.fixture
+def test_settings():
+    
+    
+    test_config = TestConfig(
+        username = "test_user",
+        password= "Pa$$W0rd"
+    )
+    
+    return Settings()
+
+
+
+@pytest.fixture
 def testclient():
     from src.main import app
 
     return TestClient(app)
+
+@pytest.fixture
+def test_user(test_settings):
+    return {"username": f"{settings.test.username}", "password": f"{settings.test.password}"}
+
+
+@pytest.fixture
+def authorized_testclient(test_user, testclient):
+    

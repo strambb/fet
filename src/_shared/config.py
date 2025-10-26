@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 from pydantic_settings import (
     BaseSettings,
@@ -14,11 +16,17 @@ class DBConfig(BaseModel):
     dbname: str
 
 
+class TestConfig(BaseModel):
+    username: str
+    password: str
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_nested_delimiter="--", env_file=(".env", ".env.prod")
     )
 
+    test: Optional[TestConfig]
     db: DBConfig
 
     @classmethod

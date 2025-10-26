@@ -1,45 +1,33 @@
 from src.expense_management.domain.repository import IExpenseRepository
-from src.iam.domain.repository import IUserRepository
 from src.expense_management.domain import model as expense_model
 from src.expense_management.domain import exception as domain_expense
 from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Protocol
 from src.expense_management.application import expense_exception
 
 
-class ExpenseAuthorizationService:
-    def __init__(self, user_repo: IUserRepository):
-        self._user_repo = user_repo
-
-    def can_approve(self, expense: expense_model.Expense, approver_id: UUID) -> bool:
+class ExpenseAuthorizationContract(Protocol):
+    def can_approve_expense(
+        self, submitter_id: UUID, approver_id: UUID, organization_id: UUID
+    ) -> bool:
         """Checks if user can approve given expense"""
-        if expense.submitter_id == approver_id:
-            return False
+        ...
 
-        if not self._user_repo.has_role(approver_id, "APPROVER"):
-            return False
+    def can_submit_expense(self, user_id: UUID) -> bool: ...
 
-        return self._user_repo.is_same_organization(
-            approver_id, expense.organization_id
-        )
+    def is_approver(self, user_id: UUID) -> bool: ...
 
-    def can_submit(self, user_id: UUID):
-        return self._user_repo.has_role(
-            user_id, "SUBMITTER"
-        ) | self._user_repo.has_role(user_id, "APPROVER")
-
-    def is_approver(self, user_id: UUID) -> bool:
-        return self._user_repo.has_role(user_id, "APPROVER")
+    def is_same_organization(self, user_id: UUID, org_id: UUID) -> bool: ...
 
 
 class ExpenseApplicationService:
     def __init__(
         self,
-        expense_auth_service: ExpenseAuthorizationService,
+        auth_service: ExpenseAuthorizationContract,
         expense_repo: IExpenseRepository,
     ):
-        self._expense_auth = expense_auth_service
+        self._auth_service = auth_service
         self._expense_repo = expense_repo
 
     def create_expense(
@@ -94,7 +82,9 @@ class ExpenseApplicationService:
         expense = self._expense_repo.get(expense_id=expense_id)
 
         # Check user can approve
-        if not self._expense_auth.can_approve(expense, user_id):
+        if not self._auth_service.can_approve_expense(
+            expense.submitter_id, user_id, expense.organization_id
+        ):
             raise expense_exception.InvalidApprover
 
         expense.approve(user_id)
@@ -110,17 +100,13 @@ class ExpenseApplicationService:
         self._expense_repo.save(expense=expense)
         return expense
 
-    def get_related_expenses(self, user_id: UUID) -> list[expense_model.Expense]:
+    def find_expenses_by_user(self, user_id: UUID) -> list[expense_model.Expense]:
         return self._expense_repo.find_by_user(user_id)
 
-    def get_all_org_expenses(
-        self, user_id: UUID, org_id: UUID
-    ) -> list[expense_model.Expense]:
-        if not self._expense_auth.is_approver(
+    def get_expenses_for_user_organization(self, user_id: UUID, org_id: UUID):
+        if not self._auth_service.is_approver(
             user_id=user_id
-        ) or not self._expense_auth._user_repo.is_same_organization(
-            user_id=user_id, org_id=org_id
-        ):
+        ) or not self._auth_service.is_same_organization(user_id, org_id):
             raise expense_exception.NotPermitted("User is not permitted")
 
         return self._expense_repo.find_by_organization(org_id=org_id)

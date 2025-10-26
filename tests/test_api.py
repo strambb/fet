@@ -42,8 +42,15 @@ class TestExpenseAPI:
     def test_can_delete_expense(self):
         raise NotImplementedError
 
-    def test_can_get_expense_by_id(self):
-        raise NotImplementedError
+    def test_can_get_expense_by_id(self, add_fake_org, add_fake_user, add_fake_expense, testclient):
+        org = add_fake_org(name = "fake_org")
+        submitter = add_fake_user(org_id = org["id"])      
+        expense = add_expense(
+            submitter_id = submitter["id"],
+            organization_id = org["id"]
+        )
+        token = 
+        response = testclient.get(expense)
 
     def test_can_get_expenses_by_status(self):
         raise NotImplementedError
