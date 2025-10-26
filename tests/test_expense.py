@@ -1,10 +1,11 @@
 import pytest
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import uuid4
 import pytz
-import src.domain.expense.model as model
-import src.domain.expense.exception as exception
+import src.expense_management.domain.model as expense_model
+import src.organization.domain.model as org_model
+import src.expense_management.domain.exception as exception
 from random import randint
 
 tz_berlin = pytz.timezone("Europe/Berlin")
@@ -42,38 +43,38 @@ def random_submitter():
 
 def random_org():
     name = f"org-{str(uuid4())[-6:]}"
-    return model.Organization(name=name)
+    return org_model.Organization(name=name)
 
 
 def generate_random_expense(amount: float = 10):
-    return model.Expense(
+    return expense_model.Expense(
         submitter_id=random_submitter(),
         date=datetime(2025, 1, randint(1, 31)),
         title=f"title-{str(uuid4())[-6:]}",
         amount=amount,
-        category=model.ExpenseCategory.OFFICE_SUPPLIES,
+        category=expense_model.ExpenseCategory.OFFICE_SUPPLIES,
         organization_id=random_org().id,
     )
 
 
 def test_new_expense_in_draft_state():
-    org = model.Organization(name="FraktionA")
-    expense = model.Expense(
+    org = org_model.Organization(name="FraktionA")
+    expense = expense_model.Expense(
         submitter_id="me",
-        category=model.ExpenseCategory.OFFICE_SUPPLIES,
+        category=expense_model.ExpenseCategory.OFFICE_SUPPLIES,
         title="Pens",
         amount=100,
         document_reference=None,
         organization_id=org.id,
         date=datetime(2025, 2, 1),
     )
-    assert expense.state == model.ExpenseState.DRAFT
+    assert expense.state == expense_model.ExpenseState.DRAFT
 
 
 def test_expense_after_submit_in_submitted_state():
     expense = generate_random_expense()
     expense.submit(expense.submitter_id)
-    assert expense.state == model.ExpenseState.SUBMITTED
+    assert expense.state == expense_model.ExpenseState.SUBMITTED
 
 
 def test_cannot_submit_expense_if_not_draft():
@@ -100,7 +101,7 @@ def test_expense_approval_by_valid_approver():
     expense = generate_random_expense()
     expense.submit(expense.submitter_id)
     expense.approve("valid_approver_id")
-    assert expense.state == model.ExpenseState.APPROVED
+    assert expense.state == expense_model.ExpenseState.APPROVED
 
 
 def test_can_withdraw_expense_from_draft_as_submitter():
@@ -110,7 +111,7 @@ def test_can_withdraw_expense_from_draft_as_submitter():
     submitter1 = expense1.submitter_id
     expense1.withdraw(submitter1)
 
-    assert expense1.state == model.ExpenseState.WITHDRAWN
+    assert expense1.state == expense_model.ExpenseState.WITHDRAWN
 
 
 def test_can_withdraw_expense_from_submitted_as_submitter():
@@ -121,7 +122,7 @@ def test_can_withdraw_expense_from_submitted_as_submitter():
     expense1.submit(expense1.submitter_id)
     expense1.withdraw(submitter1)
 
-    assert expense1.state == model.ExpenseState.WITHDRAWN
+    assert expense1.state == expense_model.ExpenseState.WITHDRAWN
 
 
 def test_cannot_withdraw_as_different_user():
@@ -145,7 +146,7 @@ def test_can_revoke_approval_as_approver_with_reason():
     approver = "valid_approver"
     expense.approve(approver)
     expense.revoke(by=approver, reason="new insights")
-    assert expense.state == model.ExpenseState.REVOKED
+    assert expense.state == expense_model.ExpenseState.REVOKED
 
 
 def test_cannot_revoce_approval_as_approver_without_reason():
@@ -159,7 +160,7 @@ def test_cannot_revoce_approval_as_approver_without_reason():
     with pytest.raises(exception.MissingReason):
         expense.revoke(by=approver, reason="")
 
-    assert expense.state == model.ExpenseState.APPROVED
+    assert expense.state == expense_model.ExpenseState.APPROVED
 
 
 def test_cannot_revoke_approval_as_not_approver():

@@ -4,14 +4,15 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from src.application import expense_exception
-from src.application.services import (
+from src.expense_management.application import expense_exception
+from src.expense_management.application.services import (
     ExpenseApplicationService,
     ExpenseAuthorizationService,
 )
-from src.domain.expense import model as expense_model
-from src.domain.user import model as user_model
-from src.infrastructure.repositories import FakeExpenseRepository, FakeUserRepository
+from src.expense_management.domain import model as expense_model
+from src.iam.domain import model as user_model
+from src.expense_management.infrastructure.repository import FakeExpenseRepository
+from src.iam.infrastructure.repository import FakeUserRepository
 
 
 def fake_user_repo(users: list[user_model.User]):
@@ -421,11 +422,13 @@ class TestExpenseAppService:
         expense_app.submit_expense(user_id=submitter.id, expense_id=expense.id)
 
         assert expense.state.name == "SUBMITTED"
-        
+
         expense_app.approve_expense(user_id=approver.id, expense_id=expense.id)
 
         assert expense.state.name == "APPROVED"
 
-        expense_app.revoke_approval(user_id=approver.id, expense_id=expense.id, reason="I have my reason")
+        expense_app.revoke_approval(
+            user_id=approver.id, expense_id=expense.id, reason="I have my reason"
+        )
 
         assert expense.state.name == "REVOKED"

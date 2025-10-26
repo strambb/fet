@@ -3,14 +3,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from src.domain.expense import model as expense_model
-from src.domain.user import model as user_model
-from src.infrastructure import orm
-from src.infrastructure import exception
-from src.infrastructure.repositories import (
-    SqlAlchemyExpenseRepository,
-    SqlAlchemyUserRepository,
-)
+from src.expense_management.domain import model as expense_model
+from src.iam.domain import model as user_model
+from src._shared.infrastructure import orm
+from src.expense_management.infrastructure import exception
+from src.expense_management.infrastructure.repository import SqlAlchemyExpenseRepository
+from src.iam.infrastructure.repository import SqlAlchemyUserRepository
 
 
 def insert_org(session, commit: bool = False):

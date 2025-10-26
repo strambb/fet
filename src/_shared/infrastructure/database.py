@@ -1,7 +1,7 @@
-from src.config import get_settings
+from src._shared.config import get_settings
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from src.infrastructure import orm
+from src._shared.infrastructure import orm
 
 
 def build_postgres_uri():

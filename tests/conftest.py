@@ -6,8 +6,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
-from src.infrastructure.orm import Base
-from src.infrastructure.database import build_postgres_uri
+from src._shared.infrastructure.orm import Base
+from src._shared.infrastructure.database import build_postgres_uri
 from fastapi.testclient import TestClient
 
 

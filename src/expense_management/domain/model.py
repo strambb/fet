@@ -4,7 +4,7 @@ from typing import Optional
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from uuid import uuid4, UUID
-import src.domain.expense.exception as exception
+import src.expense_management.domain.exception as exception
 
 
 class ExpenseState(Enum):
@@ -17,12 +17,6 @@ class ExpenseState(Enum):
 
 class ExpenseCategory(Enum):
     OFFICE_SUPPLIES = auto()
-
-
-@dataclass(kw_only=True)
-class Organization:
-    name: str
-    id: UUID = field(default_factory=uuid4)
 
 
 @dataclass(kw_only=True)

@@ -1,0 +1,13 @@
+from typing import Protocol
+from uuid import UUID
+from src.expense_management.domain import model as expense_model
+
+
+class IExpenseRepository(Protocol):
+    def get(self, expense_id: UUID) -> expense_model.Expense: ...
+
+    def save(self, expense: expense_model.Expense) -> None: ...
+
+    def find_by_organization(self, org_id: UUID) -> list[expense_model.Expense]: ...
+
+    def find_by_user(self, user_id: UUID) -> list[expense_model.Expense]: ...

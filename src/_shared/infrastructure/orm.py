@@ -6,8 +6,8 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQL_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from src.domain.expense import model as expense_model
-from src.domain.user import model as user_model
+from src.expense_management.domain import model as expense_model
+from src.iam.domain import model as user_model
 
 
 class Base(DeclarativeBase):

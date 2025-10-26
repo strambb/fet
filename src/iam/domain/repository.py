@@ -1,0 +1,13 @@
+from typing import Protocol
+from uuid import UUID
+from src.iam.domain import model as user_model
+
+
+class IUserRepository(Protocol):
+    def has_role(self, user_id: UUID, role: str) -> bool: ...
+
+    def is_same_organization(self, user_id: UUID, org_id: UUID) -> bool: ...
+
+    def exists(self, user_id: UUID) -> bool: ...
+
+    def get(self, user_id: UUID) -> user_model.User: ...

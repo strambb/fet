@@ -1,10 +1,11 @@
-from src.domain.repositories import IUserRepository, IExpenseRepository
-from src.domain.expense import model as expense_model
-from src.domain.expense import exception as domain_expense
+from src.expense_management.domain.repository import IExpenseRepository
+from src.iam.domain.repository import IUserRepository
+from src.expense_management.domain import model as expense_model
+from src.expense_management.domain import exception as domain_expense
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
-from src.application import expense_exception
+from src.expense_management.application import expense_exception
 
 
 class ExpenseAuthorizationService:
