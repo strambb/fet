@@ -44,7 +44,6 @@ class UserORM(Base):
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     organization: Mapped[OrganizationORM] = relationship(back_populates="users")
     password_hash: Mapped[str] = mapped_column(String(255), nullable=True)
-    password_salt: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=True)
     created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -63,7 +62,6 @@ class UserORM(Base):
             role=self.role,
             organization_id=self.organization_id,
             password_hash=self.password_hash,
-            password_salt=self.password_salt,
         )
 
     @classmethod
@@ -75,7 +73,6 @@ class UserORM(Base):
                 email=user.email,
                 role=user.role,
                 password_hash=user.password_hash,
-                password_salt=user.password_salt,
                 organization_id=user.organization_id,
             )
         except Exception as e:

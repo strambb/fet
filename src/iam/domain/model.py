@@ -18,4 +18,17 @@ class User:
     role: UserRole
     organization_id: UUID
     password_hash: Optional[str] = None
-    password_salt: Optional[str | bytes] = None
+
+
+@dataclass
+class Password:
+    _value: str
+
+    def __post_init__(self):
+        self._validate()
+
+    def _validate(self):
+        pass
+
+    def __repr__(self):
+        return "Password(***)"

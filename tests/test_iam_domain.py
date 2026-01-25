@@ -10,25 +10,22 @@ class TestUserModel:
 
     # Tests of the user domain model
 
-    def get_salt(self):
-        return secrets.token_bytes(32)
-
-    def hash_pw(self, password: str, salt: bytes):
+    def hash_pw(self, password: str):
         Password_Hash = PasswordHash.recommended()
-        return Password_Hash.hash(password, salt=salt)
+        return Password_Hash.hash(password)
 
     def test_can_create_user_with_password_hash(self, test_settings):
         pw_plain = test_settings.test.password
-
-        salt = self.get_salt()
 
         user = self.User(
             name="name",
             email="email",
             organization_id=uuid4(),
             role=self.UserRole.SUBMITTER,
-            password_hash=self.hash_pw(password=pw_plain, salt=salt),
-            password_salt=salt,
+            password_hash=self.hash_pw(password=pw_plain),
         )
 
-        assert self.hash_pw(password=pw_plain, salt=salt) == user.password_hash
+        assert user.password_hash
+        assert PasswordHash.recommended().verify(
+            password=pw_plain, hash=user.password_hash
+        )

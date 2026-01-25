@@ -137,7 +137,6 @@ class TestUserRepo:
             role=UserRole.ADMIN,
             organization_id=uuid4(),
             password_hash="some",
-            password_salt=bytes(123456),
         )
 
         user_repo = SqlAlchemyUserRepository(session)
@@ -193,7 +192,6 @@ class TestPersistantUserRepo:
             role=UserRole.ADMIN,
             organization_id=insert_org(postgres_session),
             password_hash="some",
-            password_salt=bytes(123456),
         )
 
         user_repo = SqlAlchemyUserRepository(postgres_session)

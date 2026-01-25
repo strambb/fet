@@ -30,15 +30,49 @@ class SqlAlchemyUserRepository(repository.IUserRepository):
         return user.to_domain()
 
     def save(self, user: user_model.User) -> None:
+        # TODO: Add update mechanism with existance check and implement unit of work on service layer (flushing here)
         try:
             user_orm = orm.UserORM.from_domain(user)
         except exception.UserTranslationError as e:
             raise e
-        
+
         try:
             self._session.add(user_orm)
         except Exception as e:
             raise e
+
+    def get_by_email(self, user_email: str) -> user_model.User:
+        try:
+            user_orm = (
+                self._session.query(orm.UserORM)
+                .filter(orm.UserORM.email == user_email)
+                .first()
+            )
+            if not user_orm:
+                raise exception.UserNotFound("User not found in database")
+            user = user_orm.to_domain()
+            return user
+        except exception.UserNotFound:
+            raise
+        except Exception as e:
+            raise exception.UserRepositoryException(
+                f"An unexpected error occurred in user repository: {e}"
+            )
+
+    def exists_by_email(self, user_email: str) -> bool:
+        try:
+            user_orm = (
+                self._session.query(orm.UserORM)
+                .filter(orm.UserORM.email == user_email)
+                .first()
+            )
+            if not user_orm:
+                return False
+            return True
+        except Exception as e:
+            raise exception.UserRepositoryException(
+                f"An unexpected error occurred in user repository: {e}"
+            )
 
 
 class FakeUserRepository(repository.IUserRepository):
@@ -64,5 +98,15 @@ class FakeUserRepository(repository.IUserRepository):
 
     def save(self, user: user_model.User) -> None:
         self._users[user.id] = user
-    
-        
+
+    def get_by_email(self, user_email: str) -> user_model.User:
+        for user_id, user in self._users.items():
+            if user.email == user_email:
+                return user
+        raise exception.UserNotFound("User not found in database")
+
+    def exists_by_email(self, user_email: str) -> bool:
+        for user_id, user in self._users.items():
+            if user.email == user_email:
+                return True
+        return False

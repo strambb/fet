@@ -1,5 +1,8 @@
-class UserNotFound(Exception):
+class UserRepositoryException(Exception):
     pass
 
-class UserTranslationError(Exception):
+class UserNotFound(UserRepositoryException):
+    pass
+
+class UserTranslationError(UserRepositoryException):
     pass

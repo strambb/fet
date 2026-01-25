@@ -1,0 +1,525 @@
+diff --git a/.todo.md b/.todo.md
+index c2d48be..4f802ee 100644
+--- a/.todo.md
++++ b/.todo.md
+@@ -9,10 +9,15 @@
+ - write expense service which is meant to orchestrate the workflows around expenses and cross boundaries
+ - refactor file structure to split domains
+ - move AuthorizationService into user domain as policy and define policy in Expense domain
+-  ---done---
+-
+ - Check auth tests
+ - Write test which generates a fake user in DB and checks existance
++  ---done---
++- register user test
++- register user function
++- auth service dependency
++- registeruser api and dto
++
++
+ - Adjust user model in IAM to allow for user creation, password changes, user deletion
+   - password and salt column 
+ - Implement conftest to generate a random user in DB
+@@ -23,3 +28,6 @@
+ - write dependecies to get repos, services, etc...
+ - write pydandic model as DTOs
+ - implement fastapi endpoints
++- as admin (needed endpoints for later):
++  approve user?
++  change user role?
+diff --git a/pyproject.toml b/pyproject.toml
+index 762019a..b0efeb4 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -5,6 +5,7 @@ description = "Add your description here"
+ readme = "README.md"
+ requires-python = ">=3.12"
+ dependencies = [
++    "email-validator>=2.3.0",
+     "fastapi[standard]>=0.118.2",
+     "psycopg2-binary>=2.9.11",
+     "pwdlib[argon2]>=0.3.0",
+diff --git a/src/_shared/infrastructure/orm.py b/src/_shared/infrastructure/orm.py
+index 2a39e38..e68ec30 100644
+--- a/src/_shared/infrastructure/orm.py
++++ b/src/_shared/infrastructure/orm.py
+@@ -44,7 +44,6 @@ class UserORM(Base):
+     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
+     organization: Mapped[OrganizationORM] = relationship(back_populates="users")
+     password_hash: Mapped[str] = mapped_column(String(255), nullable=True)
+-    password_salt: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=True)
+     created: Mapped[datetime] = mapped_column(
+         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+     )
+@@ -63,7 +62,6 @@ class UserORM(Base):
+             role=self.role,
+             organization_id=self.organization_id,
+             password_hash=self.password_hash,
+-            password_salt=self.password_salt,
+         )
+ 
+     @classmethod
+@@ -75,7 +73,6 @@ class UserORM(Base):
+                 email=user.email,
+                 role=user.role,
+                 password_hash=user.password_hash,
+-                password_salt=user.password_salt,
+                 organization_id=user.organization_id,
+             )
+         except Exception as e:
+diff --git a/src/iam/application/services.py b/src/iam/application/services.py
+index 51a57f6..a55b6a8 100644
+--- a/src/iam/application/services.py
++++ b/src/iam/application/services.py
+@@ -1,6 +1,36 @@
++import secrets
++from uuid import UUID
++
++from pwdlib import PasswordHash
++
+ from src.expense_management.application.services import ExpenseAuthorizationContract
++from src.iam.domain.model import User, UserRole
+ from src.iam.domain.repository import IUserRepository
+-from uuid import UUID
++from src.iam.infrastructure import exception as iam_repo_exception
++from src.iam.application import exception as iam_application_exception
++import re
++from typing import Protocol
++from email_validator import validate_email, EmailNotValidError
++
++
++class IPasswordService(Protocol):
++    def generate_hash(self, plain_pw: str) -> str: ...
++    def verify_password(
++        self, plain_password: str, hash: str
++    ) -> tuple[bool, (str | None)]: ...
++
++
++class PasswordService:
++    def __init__(self):
++        self._hasher = PasswordHash.recommended()
++
++    def generate_hash(self, plain_pw: str) -> str:
++        return self._hasher.hash(plain_pw)
++
++    def verify_password(
++        self, plain_password: str, hash: str
++    ) -> tuple[bool, (str | None)]:
++        return self._hasher.verify_and_update(password=plain_password, hash=hash)
+ 
+ 
+ class AuthorizationService(ExpenseAuthorizationContract):
+@@ -32,7 +62,91 @@ class AuthorizationService(ExpenseAuthorizationContract):
+ 
+ 
+ class AuthenticationService:
+-    # Contract to be defined with API?
++    # Contract to be defined with API? Where?
+ 
+-    def __init__(self, user_repo: IUserRepository):
++    def __init__(self, user_repo: IUserRepository, password_service: IPasswordService):
+         self.user_repo = user_repo
++        self.password_service = password_service
++
++    def _validate_password(self, password) -> None:
++        """
++        Validate password based on following rules:
++        - At least one uppercase letter
++        - At least one lowercase letter
++        - At least one number
++        - At least one special character
++        - Al least 8 characters
++        - Maximum 128 characters
++
++        :param password: password to be validated
++        """
++
++        if len(password) < 8:
++            raise iam_application_exception.InsecurePassword(
++                "Password must be at least 8 characters long."
++            )
++
++        if len(password) > 128:
++            raise iam_application_exception.InsecurePassword(
++                "Password too long. Maximum 128 characters."
++            )
++
++        if not re.search(r"[a-z]", password):
++            raise iam_application_exception.InsecurePassword(
++                "Password must contain lowercase letter."
++            )
++
++        if not re.search(r"[A-Z]", password):
++            raise iam_application_exception.InsecurePassword(
++                "Password must contain uppercase letter."
++            )
++
++        if not re.search(r"\d", password):
++            raise iam_application_exception.InsecurePassword(
++                "Password must contain at least one digit."
++            )
++
++        if not re.search(r"[!@#$%^&*(),.?:{}|<>]", password):
++            raise iam_application_exception.InsecurePassword(
++                "Password must contain at least one special character of [!@#$%^&*(),.?:{}|<>]."
++            )
++
++    def _validate_and_normalize_email(self, email: str) -> str:
++        try:
++            email_info = validate_email(email, check_deliverability=True)
++            email = email_info.normalized
++            return email
++
++        except EmailNotValidError as e:
++            raise iam_application_exception.InvalidEmail(f"Email not valid: {e}")
++
++    def register_user(self, name: str, email: str, password: str, org_id: UUID) -> User:
++        email = self._validate_and_normalize_email(email=email)
++        self._validate_password(password=password)
++
++        if self.user_repo.exists_by_email(email):
++            raise iam_application_exception.DuplicateEmail(
++                f"Email {email} is already registered"
++            )
++
++        user = User(
++            name=name,
++            email=email,
++            role=UserRole.SUBMITTER,  # Default role is submitter
++            organization_id=org_id,
++            password_hash=self.password_service.generate_hash(plain_pw=password),
++        )
++        try:
++            self.user_repo.save(user)
++
++        except iam_repo_exception.UserTranslationError as e:
++            raise iam_application_exception.UserRegistrationError(
++                f"Failed to create user: {e}"
++            ) from e
++        except Exception as e:
++            # logger.error...
++            raise iam_application_exception.UserRegistrationError(
++                f"An unexpected error occurred during registration: {e}"
++            )
++
++        return user
+diff --git a/src/iam/domain/model.py b/src/iam/domain/model.py
+index f8a64c9..e58ba2a 100644
+--- a/src/iam/domain/model.py
++++ b/src/iam/domain/model.py
+@@ -18,4 +18,3 @@ class User:
+     role: UserRole
+     organization_id: UUID
+     password_hash: Optional[str] = None
+-    password_salt: Optional[str | bytes] = None
+diff --git a/src/iam/domain/repository.py b/src/iam/domain/repository.py
+index 7a9ebad..6393573 100644
+--- a/src/iam/domain/repository.py
++++ b/src/iam/domain/repository.py
+@@ -10,6 +10,10 @@ class IUserRepository(Protocol):
+ 
+     def exists(self, user_id: UUID) -> bool: ...
+ 
++    def exists_by_email(self, user_email: str) -> bool: ...
++
+     def get(self, user_id: UUID) -> user_model.User: ...
+ 
+     def save(self, user: user_model.User) -> None: ...
++
++    def get_by_email(self, user_email: str) -> user_model.User: ...
+diff --git a/src/iam/infrastructure/exception.py b/src/iam/infrastructure/exception.py
+index 143904a..64e5fa7 100644
+--- a/src/iam/infrastructure/exception.py
++++ b/src/iam/infrastructure/exception.py
+@@ -1,5 +1,8 @@
+-class UserNotFound(Exception):
++class UserRepositoryException(Exception):
+     pass
+ 
+-class UserTranslationError(Exception):
++class UserNotFound(UserRepositoryException):
++    pass
++
++class UserTranslationError(UserRepositoryException):
+     pass
+diff --git a/src/iam/infrastructure/repository.py b/src/iam/infrastructure/repository.py
+index e4dd7b1..5ed9207 100644
+--- a/src/iam/infrastructure/repository.py
++++ b/src/iam/infrastructure/repository.py
+@@ -30,16 +30,50 @@ class SqlAlchemyUserRepository(repository.IUserRepository):
+         return user.to_domain()
+ 
+     def save(self, user: user_model.User) -> None:
++        # TODO: Add update mechanism with existance check and implement unit of work on service layer (flushing here)
+         try:
+             user_orm = orm.UserORM.from_domain(user)
+         except exception.UserTranslationError as e:
+             raise e
+-        
++
+         try:
+             self._session.add(user_orm)
+         except Exception as e:
+             raise e
+ 
++    def get_by_email(self, user_email: str) -> user_model.User:
++        try:
++            user_orm = (
++                self._session.query(orm.UserORM)
++                .filter(orm.UserORM.email == user_email)
++                .first()
++            )
++            if not user_orm:
++                raise exception.UserNotFound("User not found in database")
++            user = user_orm.to_domain()
++            return user
++        except exception.UserNotFound:
++            raise
++        except Exception as e:
++            raise exception.UserRepositoryException(
++                f"An unexpected error occurred in user repository: {e}"
++            )
++
++    def exists_by_email(self, user_email: str) -> bool:
++        try:
++            user_orm = (
++                self._session.query(orm.UserORM)
++                .filter(orm.UserORM.email == user_email)
++                .first()
++            )
++            if not user_orm:
++                return False
++            return True
++        except Exception as e:
++            raise exception.UserRepositoryException(
++                f"An unexpected error occurred in user repository: {e}"
++            )
++
+ 
+ class FakeUserRepository(repository.IUserRepository):
+     def __init__(self, users: Optional[list[user_model.User]] = None):
+@@ -64,5 +98,15 @@ class FakeUserRepository(repository.IUserRepository):
+ 
+     def save(self, user: user_model.User) -> None:
+         self._users[user.id] = user
+-    
+-        
++
++    def get_by_email(self, user_email: str) -> user_model.User:
++        for user_id, user in self._users.items():
++            if user.email == user_email:
++                return user
++        raise exception.UserNotFound("User not found in database")
++
++    def exists_by_email(self, user_email: str) -> bool:
++        for user_id, user in self._users.items():
++            if user.email == user_email:
++                return True
++        return False
+diff --git a/tests/test_iam_authentication_service.py b/tests/test_iam_authentication_service.py
+index 012cae4..0e8fa32 100644
+--- a/tests/test_iam_authentication_service.py
++++ b/tests/test_iam_authentication_service.py
+@@ -1,5 +1,11 @@
+-from src.iam.application.services import AuthenticationService
++from uuid import uuid4
++
++import pytest
++
++from src.iam.application import exception
++from src.iam.application.services import AuthenticationService, PasswordService
+ from src.iam.infrastructure.repository import FakeUserRepository
++from src.iam.domain.model import User, UserRole
+ 
+ 
+ class TestAuthenticationService:
+@@ -7,5 +13,111 @@ class TestAuthenticationService:
+         assert AuthenticationService
+ 
+     def test_service_has_user_repo(self):
+-        auth_service = AuthenticationService(user_repo=FakeUserRepository())
++        pws = PasswordService()
++        auth_service = AuthenticationService(
++            user_repo=FakeUserRepository(), password_service=pws
++        )
+         assert auth_service.user_repo
++
++    def test_given_good_password_and_email_then_can_register_user(self, test_settings):
++        pws = PasswordService()
++        auth_service = AuthenticationService(
++            user_repo=FakeUserRepository(), password_service=pws
++        )
++
++        org_id = uuid4()
++
++        user = auth_service.register_user(
++            name="testuser",
++            email="test@mgoebel.xyz",
++            password=test_settings.test.password,
++            org_id=org_id,
++        )
++
++        assert user == auth_service.user_repo.get(user.id)
++
++    def test_given_bad_password_then_cannot_register_user(self):
++        pws = PasswordService()
++        auth_service = AuthenticationService(
++            user_repo=FakeUserRepository(), password_service=pws
++        )
++
++        bad_passwords = [
++            "short",
++            "nouppercase123!",  # no uppercase
++            "NOLOWERCASE123#",  # no lowercase
++            "NoSpecialChar123",  # no special character
++            "NoNumber#%",  # no number
++            "A" * 129 + "a!1",  # to long
++        ]
++
++        org_id = uuid4()
++
++        for bad_password in bad_passwords:
++            with pytest.raises(exception.InsecurePassword) as e:
++                _ = auth_service.register_user(
++                    name="testuser",
++                    email="test@mgoebel.xyz",
++                    password=bad_password,
++                    org_id=org_id,
++                )
++            assert "Password must " in str(e) or "Password too long" in str(e)
++
++    def test_given_bad_email_then_cannot_register_user(self, test_settings):
++        pws = PasswordService()
++        auth_service = AuthenticationService(
++            user_repo=FakeUserRepository(), password_service=pws
++        )
++
++        org_id = uuid4()
++
++        bad_emails = ["i", "@d.de", "i.de", "@.de", "@.", "i@asd@.de"]
++
++        for bad_email in bad_emails:
++            with pytest.raises(exception.InvalidEmail) as e:
++                _ = auth_service.register_user(
++                    name="testuser",
++                    email=bad_email,
++                    password=test_settings.test.password,
++                    org_id=org_id,
++                )
++            assert "Email not valid:" in str(e)
++
++    def test_given_duplicate_email_then_cannot_register_user(self, test_settings):
++        pws = PasswordService()
++        auth_service = AuthenticationService(
++            user_repo=FakeUserRepository(), password_service=pws
++        )
++
++        org_id = uuid4()
++        _ = auth_service.register_user(
++            name="testuser",
++            email="test@mgoebel.xyz",
++            password=test_settings.test.password,
++            org_id=org_id,
++        )
++
++        with pytest.raises(exception.DuplicateEmail) as e:
++            _ = auth_service.register_user(
++                name="testuser",
++                email="test@mgoebel.xyz",
++                password=test_settings.test.password,
++                org_id=org_id,
++            )
++        assert "already" in str(e)
++
++
++class TestPasswordService:
++    def test_service_exists(self):
++        assert PasswordService
++
++    def test_hash_password_and_verify(self):
++        pws = PasswordService()
++
++        hash = pws.generate_hash("some")
++
++        assert "argon2id" in hash
++
++        valid, _ = pws.verify_password("some", hash)
++
++        assert valid
+diff --git a/tests/test_iam_domain.py b/tests/test_iam_domain.py
+index cae0586..19cf7ca 100644
+--- a/tests/test_iam_domain.py
++++ b/tests/test_iam_domain.py
+@@ -10,25 +10,22 @@ class TestUserModel:
+ 
+     # Tests of the user domain model
+ 
+-    def get_salt(self):
+-        return secrets.token_bytes(32)
+-
+-    def hash_pw(self, password: str, salt: bytes):
++    def hash_pw(self, password: str):
+         Password_Hash = PasswordHash.recommended()
+-        return Password_Hash.hash(password, salt=salt)
++        return Password_Hash.hash(password)
+ 
+     def test_can_create_user_with_password_hash(self, test_settings):
+         pw_plain = test_settings.test.password
+ 
+-        salt = self.get_salt()
+-
+         user = self.User(
+             name="name",
+             email="email",
+             organization_id=uuid4(),
+             role=self.UserRole.SUBMITTER,
+-            password_hash=self.hash_pw(password=pw_plain, salt=salt),
+-            password_salt=salt,
++            password_hash=self.hash_pw(password=pw_plain),
+         )
+ 
+-        assert self.hash_pw(password=pw_plain, salt=salt) == user.password_hash
++        assert user.password_hash
++        assert PasswordHash.recommended().verify(
++            password=pw_plain, hash=user.password_hash
++        )
+diff --git a/tests/test_repositories.py b/tests/test_repositories.py
+index 5769aad..421957e 100644
+--- a/tests/test_repositories.py
++++ b/tests/test_repositories.py
+@@ -137,7 +137,6 @@ class TestUserRepo:
+             role=UserRole.ADMIN,
+             organization_id=uuid4(),
+             password_hash="some",
+-            password_salt=bytes(123456),
+         )
+ 
+         user_repo = SqlAlchemyUserRepository(session)
+@@ -193,7 +192,6 @@ class TestPersistantUserRepo:
+             role=UserRole.ADMIN,
+             organization_id=insert_org(postgres_session),
+             password_hash="some",
+-            password_salt=bytes(123456),
+         )
+ 
+         user_repo = SqlAlchemyUserRepository(postgres_session)
+diff --git a/uv.lock b/uv.lock
+index 722fd22..2951db9 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -331,6 +331,7 @@ name = "fet"
+ version = "0.1.0"
+ source = { virtual = "." }
+ dependencies = [
++    { name = "email-validator" },
+     { name = "fastapi", extra = ["standard"] },
+     { name = "psycopg2-binary" },
+     { name = "pwdlib", extra = ["argon2"] },
+@@ -350,6 +351,7 @@ dev = [
+ 
+ [package.metadata]
+ requires-dist = [
++    { name = "email-validator", specifier = ">=2.3.0" },
+     { name = "fastapi", extras = ["standard"], specifier = ">=0.118.2" },
+     { name = "psycopg2-binary", specifier = ">=2.9.11" },
+     { name = "pwdlib", extras = ["argon2"], specifier = ">=0.3.0" },
