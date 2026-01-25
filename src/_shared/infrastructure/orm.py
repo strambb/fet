@@ -1,13 +1,14 @@
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
-from datetime import datetime, UTC
 
-from sqlalchemy import DateTime, Float, ForeignKey, String
+from sqlalchemy import DateTime, Float, ForeignKey, LargeBinary, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQL_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from src.expense_management.domain import model as expense_model
 from src.iam.domain import model as user_model
+from src.iam.infrastructure import exception as iam_exceptions
 
 
 class Base(DeclarativeBase):
@@ -42,6 +43,8 @@ class UserORM(Base):
     role: Mapped[user_model.UserRole] = mapped_column(SQLEnum(user_model.UserRole))
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"))
     organization: Mapped[OrganizationORM] = relationship(back_populates="users")
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=True)
+    password_salt: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=True)
     created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -59,7 +62,26 @@ class UserORM(Base):
             email=self.email,
             role=self.role,
             organization_id=self.organization_id,
+            password_hash=self.password_hash,
+            password_salt=self.password_salt,
         )
+
+    @classmethod
+    def from_domain(cls, user: user_model.User) -> "UserORM":
+        try:
+            return cls(
+                id=user.id,
+                name=user.name,
+                email=user.email,
+                role=user.role,
+                password_hash=user.password_hash,
+                password_salt=user.password_salt,
+                organization_id=user.organization_id,
+            )
+        except Exception as e:
+            raise iam_exceptions.UserTranslationError(
+                f"Issue with translating user from domain to orm: {e}"
+            )
 
 
 class ExpenseORM(Base):

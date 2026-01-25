@@ -29,6 +29,17 @@ class SqlAlchemyUserRepository(repository.IUserRepository):
             raise exception.UserNotFound
         return user.to_domain()
 
+    def save(self, user: user_model.User) -> None:
+        try:
+            user_orm = orm.UserORM.from_domain(user)
+        except exception.UserTranslationError as e:
+            raise e
+        
+        try:
+            self._session.add(user_orm)
+        except Exception as e:
+            raise e
+
 
 class FakeUserRepository(repository.IUserRepository):
     def __init__(self, users: Optional[list[user_model.User]] = None):
@@ -50,3 +61,8 @@ class FakeUserRepository(repository.IUserRepository):
         if not user:
             raise exception.UserNotFound
         return user
+
+    def save(self, user: user_model.User) -> None:
+        self._users[user.id] = user
+    
+        

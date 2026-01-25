@@ -37,6 +37,24 @@ def insert_submitter(session, org_id: UUID, commit: bool = False):
     return user_id
 
 
+def insert_user_with_pw_hash(session, org_id: UUID, commit: bool = False):
+    user_id = uuid4()
+
+    submitter = orm.UserORM(
+        id=user_id,
+        name="submitter",
+        email="i@u.com",
+        role=user_model.UserRole.SUBMITTER,
+        organization_id=org_id,
+        password_hash="SomeHash",
+    )
+    session.add(submitter)
+    session.flush()
+    if commit:
+        session.commit()
+    return user_id
+
+
 def insert_approver(session, org_id: UUID, commit: bool = False):
     user_id = uuid4()
 
@@ -102,6 +120,30 @@ class TestUserRepo:
         assert user_repo.exists(submitter_id)
         assert not user_repo.exists(uuid4())
 
+    def test_can_store_password(self, session):
+        org_id = insert_org(session)
+        user_id = insert_user_with_pw_hash(session, org_id=org_id)
+
+        user_repo = SqlAlchemyUserRepository(session)
+
+        assert user_repo.get(user_id).password_hash
+
+    def test_save_user(self, session):
+        UserRole = user_model.UserRole
+        User = user_model.User
+        user = User(
+            name="name",
+            email="email",
+            role=UserRole.ADMIN,
+            organization_id=uuid4(),
+            password_hash="some",
+            password_salt=bytes(123456),
+        )
+
+        user_repo = SqlAlchemyUserRepository(session)
+
+        assert user_repo.save(user) is None
+
 
 class TestPersistantUserRepo:
     def test_can_check_existance_persistance(self, postgres_session):
@@ -141,6 +183,23 @@ class TestPersistantUserRepo:
         assert user_repo.is_same_organization(submitter_id, org_id)
         assert user_repo.is_same_organization(submitter_id, approver.organization_id)
         assert not user_repo.is_same_organization(submitter_id, uuid4())
+
+    def test_can_save_user_persistance(self, postgres_session):
+        UserRole = user_model.UserRole
+        User = user_model.User
+        user = User(
+            name="name",
+            email="email",
+            role=UserRole.ADMIN,
+            organization_id=insert_org(postgres_session),
+            password_hash="some",
+            password_salt=bytes(123456),
+        )
+
+        user_repo = SqlAlchemyUserRepository(postgres_session)
+
+        assert user_repo.save(user) is None
+        assert user_repo.get(user.id) == user
 
 
 class TestPersistantExpenseRepo:

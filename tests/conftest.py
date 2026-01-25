@@ -68,15 +68,9 @@ def postgres_session(postgres_db):
 
 @pytest.fixture
 def test_settings():
-    
-    
-    test_config = TestConfig(
-        username = "test_user",
-        password= "Pa$$W0rd"
-    )
-    
-    return Settings()
+    test_config = TestConfig(username="test_user", password="Pa$$W0rd")
 
+    return Settings(test=test_config)
 
 
 @pytest.fixture
@@ -85,11 +79,12 @@ def testclient():
 
     return TestClient(app)
 
-@pytest.fixture
-def test_user(test_settings):
-    return {"username": f"{settings.test.username}", "password": f"{settings.test.password}"}
+
+# @pytest.fixture
+# def test_user(test_settings):
+#     return {"username": f"{settings.test.username}", "password": f"{settings.test.password}"}
 
 
-@pytest.fixture
-def authorized_testclient(test_user, testclient):
-    
+# @pytest.fixture
+# def authorized_testclient(test_user, testclient):
+#     pass

@@ -29,3 +29,10 @@ class AuthorizationService(ExpenseAuthorizationContract):
 
     def is_same_organization(self, user_id: UUID, org_id: UUID):
         return self._user_repo.is_same_organization(user_id=user_id, org_id=org_id)
+
+
+class AuthenticationService:
+    # Contract to be defined with API?
+
+    def __init__(self, user_repo: IUserRepository):
+        self.user_repo = user_repo
