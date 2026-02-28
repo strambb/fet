@@ -4,10 +4,11 @@ from uuid import UUID
 from pwdlib import PasswordHash
 
 from src.expense_management.application.services import ExpenseAuthorizationContract
-from src.iam.domain.model import User, UserRole
+from src.iam.domain.model import User, UserRole, Password
 from src.iam.domain.repository import IUserRepository
 from src.iam.infrastructure import exception as iam_repo_exception
 from src.iam.application import exception as iam_application_exception
+from src.iam.domain import exception as iam_domain_exception
 import re
 from typing import Protocol
 from email_validator import validate_email, EmailNotValidError
@@ -68,48 +69,7 @@ class AuthenticationService:
         self.user_repo = user_repo
         self.password_service = password_service
 
-    def _validate_password(self, password) -> None:
-        """
-        Validate password based on following rules:
-        - At least one uppercase letter
-        - At least one lowercase letter
-        - At least one number
-        - At least one special character
-        - Al least 8 characters
-        - Maximum 128 characters
 
-        :param password: password to be validated
-        """
-
-        if len(password) < 8:
-            raise iam_application_exception.InsecurePassword(
-                "Password must be at least 8 characters long."
-            )
-
-        if len(password) > 128:
-            raise iam_application_exception.InsecurePassword(
-                "Password too long. Maximum 128 characters."
-            )
-
-        if not re.search(r"[a-z]", password):
-            raise iam_application_exception.InsecurePassword(
-                "Password must contain lowercase letter."
-            )
-
-        if not re.search(r"[A-Z]", password):
-            raise iam_application_exception.InsecurePassword(
-                "Password must contain uppercase letter."
-            )
-
-        if not re.search(r"\d", password):
-            raise iam_application_exception.InsecurePassword(
-                "Password must contain at least one digit."
-            )
-
-        if not re.search(r"[!@#$%^&*(),.?:{}|<>]", password):
-            raise iam_application_exception.InsecurePassword(
-                "Password must contain at least one special character of [!@#$%^&*(),.?:{}|<>]."
-            )
 
     def _validate_and_normalize_email(self, email: str) -> str:
         try:
@@ -121,9 +81,13 @@ class AuthenticationService:
             raise iam_application_exception.InvalidEmail(f"Email not valid: {e}")
 
     def register_user(self, name: str, email: str, password: str, org_id: UUID) -> User:
-        
+
         email = self._validate_and_normalize_email(email=email)
-        self._validate_password(password=password)
+        
+        try:
+            pw = Password(password)
+        except iam_domain_exception.InsecurePassword as e:
+            raise iam_application_exception.InsecurePassword(e)
 
         if self.user_repo.exists_by_email(email):
             raise iam_application_exception.DuplicateEmail(
@@ -135,7 +99,7 @@ class AuthenticationService:
             email=email,
             role=UserRole.SUBMITTER,  # Default role is submitter
             organization_id=org_id,
-            password_hash=self.password_service.generate_hash(plain_pw=password),
+            password_hash=self.password_service.generate_hash(plain_pw=pw._value),
         )
         try:
             self.user_repo.save(user)
