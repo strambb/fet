@@ -63,13 +63,10 @@ class AuthorizationService(ExpenseAuthorizationContract):
 
 
 class AuthenticationService:
-    # Contract to be defined with API? Where?
 
     def __init__(self, user_repo: IUserRepository, password_service: IPasswordService):
         self.user_repo = user_repo
         self.password_service = password_service
-
-
 
     def _validate_and_normalize_email(self, email: str) -> str:
         try:
@@ -83,7 +80,7 @@ class AuthenticationService:
     def register_user(self, name: str, email: str, password: str, org_id: UUID) -> User:
 
         email = self._validate_and_normalize_email(email=email)
-        
+
         try:
             pw = Password(password)
         except iam_domain_exception.InsecurePassword as e:
@@ -115,3 +112,37 @@ class AuthenticationService:
             )
 
         return user
+
+    def authenticate_user(self, email: str, password: str) -> User:
+        email = self._validate_and_normalize_email(email)
+
+        try:
+            user = self.user_repo.get_by_email(email)
+        except iam_repo_exception.UserNotFound as e:
+            raise iam_application_exception.InvalidEmail(f"Invalid Email: {e}")
+
+        if not user.password_hash:
+            raise iam_application_exception.BrokenUserRecord(
+                "User cannot be authenticated. User record contains no password hash."
+            )
+
+        try:
+            valid, updated_hash = self.password_service.verify_password(
+                password, user.password_hash
+            )
+        except Exception as e:
+            raise iam_application_exception.UserAuthenticationError(
+                f"An unexpected error occured during authentication: {e}"
+            )
+
+        if valid:
+            if updated_hash:
+                user.password_hash = updated_hash
+                self.user_repo.save(user)
+            return user
+        else:
+            raise iam_application_exception.InvalidPassword(
+                "User cannot be authenticated: Wrong password."
+            )
+
+

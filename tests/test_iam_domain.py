@@ -2,7 +2,6 @@ from src.iam.domain import model as iam_models
 from src.iam.domain import exception as iam_domain_exceptions
 from uuid import uuid4
 from pwdlib import PasswordHash
-import secrets
 import pytest
 
 
@@ -32,13 +31,14 @@ class TestUserModel:
             password=pw_plain, hash=user.password_hash
         )
 
+
 class TestPasswordModel:
     Password = iam_models.Password
-    
+
     def test_given_good_password_then_get_repr(self, test_settings):
         pw = self.Password(test_settings.test.password)
         assert str(pw) == "Password(***)"
-    
+
     def test_given_bad_pass_then_get_validation_error(self):
         bad_passwords = [
             "short",
@@ -53,4 +53,3 @@ class TestPasswordModel:
             with pytest.raises(iam_domain_exceptions.InsecurePassword) as e:
                 _ = self.Password(bad_password)
             assert "Password must " in str(e) or "Password too long" in str(e)
-    

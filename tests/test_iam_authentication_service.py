@@ -1,6 +1,8 @@
 from uuid import uuid4
 
 import pytest
+from random import choices
+from string import ascii_letters
 
 from src.iam.application import exception
 from src.iam.application.services import AuthenticationService, PasswordService
@@ -105,6 +107,49 @@ class TestAuthenticationService:
                 org_id=org_id,
             )
         assert "already" in str(e)
+
+
+class TestAuthentication:
+    authn_service = AuthenticationService(
+        user_repo=FakeUserRepository(), password_service=PasswordService()
+    )
+
+    def get_user(self, password: str, email: str | None = None):
+        org_id = uuid4()
+        user = self.authn_service.register_user(
+            name="testuser",
+            email=email
+            if email
+            else "".join(choices(ascii_letters, k=5)) + "@mgoebel.xyz",
+            password=password,
+            org_id=org_id,
+        )
+
+        return user, org_id
+
+    def test_given_good_email_and_pw_user_is_authenticated(self, test_settings):
+        fake_user, _ = self.get_user(test_settings.test.password)
+
+        assert isinstance(
+            self.authn_service.authenticate_user(
+                email=fake_user.email, password=test_settings.test.password
+            ),
+            User,
+        )
+
+    def test_given_bad_email_good_pw_then_not_authenticated(self, test_settings):
+        _ = self.get_user(test_settings.test.password)
+
+        with pytest.raises(exception.InvalidEmail):
+            _ = self.authn_service.authenticate_user(
+                "1@u.de", test_settings.test.password
+            )
+
+    def test_given_good_email_bad_pw_then_not_authenticated(self, test_settings):
+        fake_user, _ = self.get_user(password=test_settings.test.password)
+
+        with pytest.raises(exception.InvalidPassword):
+            _ = self.authn_service.authenticate_user(fake_user.email, "some")
 
 
 class TestPasswordService:

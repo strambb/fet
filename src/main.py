@@ -1,10 +1,9 @@
-from typing import Annotated
-
-
-from fastapi import FastAPI, HTTPException
-
+from fastapi import FastAPI
+from src.iam.api.router import iam_router
 
 app = FastAPI()
+
+app.include_router(iam_router)
 
 
 @app.get("/healthz")
