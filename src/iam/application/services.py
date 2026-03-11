@@ -1,4 +1,3 @@
-import secrets
 from uuid import UUID
 
 from pwdlib import PasswordHash
@@ -9,7 +8,6 @@ from src.iam.domain.repository import IUserRepository
 from src.iam.infrastructure import exception as iam_repo_exception
 from src.iam.application import exception as iam_application_exception
 from src.iam.domain import exception as iam_domain_exception
-import re
 from typing import Protocol
 from email_validator import validate_email, EmailNotValidError
 

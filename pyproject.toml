@@ -23,3 +23,43 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-xdist>=3.8.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+
+[tool.poe]
+executor = "uv"
+
+[tool.poe.tasks.up]
+help = "Starting all dockers and wait for health"
+cmd = "docker compose -f ./docker-compose-local.yml up --build --wait"
+
+[tool.poe.tasks.down]
+help = "Stopping and removing all docker containers of compose"
+cmd = "docker compose -f ./docker-compose-local.yml down -v"
+
+
+[tool.poe.tasks.run_tests]
+help="Run tests"
+cmd = "python -m pytest"
+
+[tool.poe.tasks.test]
+sequence = ["up", "run_tests", "down"]
+ignore_fail = "return_non_zero"
+
+
+
+[tool.poe.tasks.lfix]
+help = "Fix all auto-fixable safe linting problems with ruff"
+cmd = "ruff check --fix-only"
+
+
+[tool.poe.tasks.lcheck]
+help = "Run lint check"
+cmd = "ruff check"
+
+[tool.poe.tasks.tcheck]
+help = "Run ty check"
+cmd = "ty check"

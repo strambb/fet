@@ -7,7 +7,7 @@ from string import ascii_letters
 from src.iam.application import exception
 from src.iam.application.services import AuthenticationService, PasswordService
 from src.iam.infrastructure.repository import FakeUserRepository
-from src.iam.domain.model import User, UserRole
+from src.iam.domain.model import User
 
 
 class TestAuthenticationService:

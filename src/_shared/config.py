@@ -23,7 +23,7 @@ class TestConfig(BaseModel):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_nested_delimiter="--", env_file=(".env", ".env.prod")
+        env_nested_delimiter="--", env_file=(".env", ".env.prod"), extra="ignore"
     )
 
     test: Optional[TestConfig]

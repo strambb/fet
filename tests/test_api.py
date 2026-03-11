@@ -1,4 +1,5 @@
 from uuid import uuid4
+
 from src._shared.infrastructure import orm
 from src.iam.application.services import PasswordService
 from src.iam.domain import model as user_model
@@ -10,7 +11,6 @@ def test_app_alive(testclient):
 
 
 class TestUserAPI:
-
     def test_can_get_token(self, postgres_session, testclient):
         org_id = uuid4()
         postgres_session.add(orm.OrganizationORM(id=org_id, name="test-org"))
@@ -63,12 +63,12 @@ class TestUserAPI:
         token = response.json()["access_token"]
         assert token is not None
 
-        testclient.headers ={"Authorization": f"Bearer {token}"}
-        
-        response = testclient.get("/users/me")
-        assert response.json()["role"] == "ADMIN" #TODO: Change which mapper to appropriate string
-        
+        testclient.headers = {"Authorization": f"Bearer {token}"}
 
+        response = testclient.get("/users/me")
+        assert (
+            response.json()["role"] == "ADMIN"
+        )  # TODO: Change which mapper to appropriate string
 
     def test_user_is_approver(self):
         raise NotImplementedError

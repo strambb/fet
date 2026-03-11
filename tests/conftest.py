@@ -9,7 +9,7 @@ from sqlalchemy_utils import database_exists, create_database
 from src._shared.infrastructure.orm import Base
 from src._shared.infrastructure.database import build_postgres_uri
 from fastapi.testclient import TestClient
-from src._shared.config import Settings, TestConfig, DBConfig
+from src._shared.config import Settings, TestConfig
 from src.iam.api.dependency import get_session
 
 
